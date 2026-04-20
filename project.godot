@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://cfypby3pn80mb"]
+
+[ext_resource type="PackedScene" path="res://supportmuskets.tscn" id="1_pc6gt"]
+
+[node name="operator" type="Node2D"]
+
+[node name="supportmuskets" parent="." instance=ExtResource("1_pc6gt")]

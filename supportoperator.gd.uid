@@ -1,0 +1,182 @@
+extends Node2D
+
+var can_reorganize = false
+var reorg_close_enemy = false
+
+func _process(delta: float) -> void:
+	enemy_ai_decision()
+
+func distribute_enemy_units_along_line(units: Array, p1: Vector2, p2: Vector2) -> void:
+	var n = units.size()
+	if n == 0:
+		return
+
+	var delta = p2 - p1
+	var points: Array = []
+	
+	for i in range(n):
+		var t = 0.5 if n == 1 else float(i) / float(max(n - 1, 1))
+		points.append(p1 + delta * t)
+
+	var available_units = units.duplicate()
+	var assignments = []
+
+	for point in points:
+		var closest_unit = null
+		var closest_dist = INF
+
+		for u in available_units:
+			var dist = u.global_position.distance_squared_to(point)
+			if dist < closest_dist:
+				closest_dist = dist
+				closest_unit = u
+
+		if closest_unit != null:
+			assignments.append({'unit': closest_unit, 'point': point})
+			available_units.erase(closest_unit)
+
+	for pair in assignments:
+		var u = pair['unit']
+		var target = pair['point']
+		
+		u.target_position = target
+		if "nav" in u and u.nav != null:
+			u.nav.target_position = target
+		
+		u.moving = true
+		u.state = u.State.ATTACKING
+
+			
+func _on_reorganisationtimer_timeout():
+	
+	var general_enemy_group = get_tree().get_nodes_in_group("generalsupport")
+	if general_enemy_group.size() > 0:
+		var general = general_enemy_group[0]
+		general.reorganizing = false
+		
+	for unit in $enemy.get_children():
+		if is_instance_valid(unit) and "reorganizing" in unit:
+			unit.reorganizing = false
+
+		
+		if unit.has_node("AIScanTimer") and unit.get_node("AIScanTimer").is_stopped():
+			unit.get_node("AIScanTimer").start()
+
+
+func _on_reorganizationcooldown_timeout() -> void:
+	can_reorganize = true
+		
+
+func enemy_ai_decision():
+	
+	#REORGANIZATION
+	if randf() < 0.05:
+		close_reorganization()
+		
+	if randf() < 0.01 and can_reorganize == true:
+		reorganize_enemy_units_to_general()
+		print("🧠 AI decyduje się na reorganizację!")
+
+
+func reorganize_enemy_units_to_general():
+
+	if not can_reorganize:
+		return
+
+	var general_enemy_group = get_tree().get_nodes_in_group("generalsupport")
+	if general_enemy_group.size() == 0:
+		return
+	
+	if $reorganisationtimer.is_stopped():
+		$reorganisationtimer.wait_time = randf_range(20.0, 40.0)
+		$reorganisationtimer.start()
+	
+	var general = general_enemy_group[0]
+	
+	# 2. Sprawdź czy generał nadal istnieje
+	if not is_instance_valid(general):
+		return
+	
+	# 3. Sprawdź czy generał jest w scenie
+	if not general.is_inside_tree():
+		return
+		
+	var general_pos = general.global_position
+	
+	general.reorganizing = true
+	
+	var all_selected_units = get_tree().get_nodes_in_group("support_units_to_command")
+	
+	# LOSOWY PROMIEŃ od 600 do 1200px
+	var random_radius = randf_range(600.0, 1000.0)
+	
+	# Weź WSZYSTKIE jednostki w tym promieniu
+	var selected_units = []
+	for unit in all_selected_units:
+		var distance = unit.global_position.distance_to(general_pos)
+		if distance <= random_radius:
+			selected_units.append(unit)
+	
+	if selected_units.size() == 0:
+		return
+	
+	for unit in selected_units:
+		unit.reorganizing = true
+		unit.current_enemy = null
+		unit.current_enemies.clear()
+		
+		if unit.has_node("AIScanTimer"):
+			unit.get_node("AIScanTimer").stop()
+	
+	# Losowa długość linii 300-800px
+	var random_length = randf_range(200.0, 800.0)
+	
+	# DODANY WARUNEK: linia nie może być dłuższa niż potrzeba dla wszystkich jednostek
+	var spacing_between_units = 24.0
+	var max_possible_length = max((selected_units.size() - 1) * spacing_between_units, 300.0)
+	
+	# Użyj mniejszej wartości: losowa długość LUB maksymalna możliwa
+	random_length = min(random_length, max_possible_length)
+	print("Długość linii: ", random_length, "px, Jednostek: ", selected_units.size(), ", Maks możliwa: ", max_possible_length, "px")
+	# ŚRODEK linii jest 100px w LEWO od generała
+	var random_x_offset = randf_range(100, 15)
+	var line_center = general_pos + Vector2(random_x_offset, 0)
+	
+	var half_length = random_length / 2.0
+	var line_start = line_center + Vector2(0, -half_length)
+	var line_end = line_center + Vector2(0, half_length)
+	
+	distribute_enemy_units_along_line(selected_units, line_start, line_end)
+	can_reorganize = false
+	$reorganizationcooldown.wait_time = randf_range(50.0, 90.0)
+	$reorganizationcooldown.start()
+	if reorg_close_enemy:
+		$reorg_close_enemy.start()
+		
+func close_reorganization():
+	var general_enemy_group = get_tree().get_nodes_in_group("generalsupport")
+	if general_enemy_group.size() == 0:
+		return
+	
+	var general = general_enemy_group[0]
+	
+	if not is_instance_valid(general):
+		return
+	
+	if not general.is_inside_tree():
+		return
+	
+
+	if general.gotoenemy == false:
+
+		if $reorg_close_enemy.is_stopped():
+			can_reorganize = true
+			reorganize_enemy_units_to_general()
+			
+			$reorg_close_enemy.wait_time = randf_range(60.0, 100.0)  # POPRAWIONE
+			$reorg_close_enemy.start()
+			
+
+
+func _on_reorg_close_enemy_timeout() -> void:
+	reorganize_enemy_units_to_general()
