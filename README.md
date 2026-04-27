@@ -5,6 +5,8 @@ Battle Of Dots: Last Stand is a fast-paced real-time strategy game focused on ta
 
 You command groups of units on a dynamic battlefield where every movement matters. Proper placement, timing, and coordination can mean the difference between victory and total defeat.
 
+<img width="1920" height="1014" alt="3" src="https://github.com/user-attachments/assets/e8931b59-4837-4aad-9a45-06ef556aae85" />
+
 Core Gameplay
 Control multiple units in real time
 Strategically position your forces before and during battle
@@ -68,3 +70,5 @@ Escape - deselect units
 About the Project:
 
 Battle Of Dots: Last Stand is designed as a minimalistic yet deep strategy experience. The goal is to create gameplay that is easy to pick up, but rewards skill, precision, and tactical thinking.
+
+
